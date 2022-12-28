@@ -4,133 +4,104 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.util.Log;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.view.View;
+
+import androidx.annotation.NonNull;
+
+import com.example.a8bittetris.Tetrimino.TetriminoBase;
 
 import java.util.ArrayList;
 
-class GameView extends View {
+class GameView extends SurfaceView {
+    private String TAG ="GameView";
+    private ArrayList<TetriminoBase> blockList;
+    private TetriminoBase currentBlock;
+    private SurfaceHolder holder;
+    GameLoopThread gameLoopThread;
+    private int x = 0;
+    private int y = 0;
 
-    private GameLoop mainLoop;
-    Bitmap gameBitmap;
-    Canvas gameCanvas;
+    private Rect collisionRect = null;
+
 
     public GameView(Context context) {
         super(context);
         this.setDrawingCacheEnabled(true);
 
-        gameCanvas = new Canvas();
+        gameLoopThread = new GameLoopThread(this);
+        holder = getHolder();
+        holder.addCallback(new SurfaceHolder.Callback() {
+            @Override
+            public void surfaceCreated(@NonNull SurfaceHolder surfaceHolder) {
+                gameLoopThread.setRunning(true);
+                gameLoopThread.start();
+            }
 
-        mainLoop = new GameLoop(getResources(), gameCanvas);
-        mainLoop.start();
-    }
+            @Override
+            public void surfaceChanged(@NonNull SurfaceHolder surfaceHolder, int i, int i1, int i2) {
 
-    @SuppressLint("DrawAllocation") @Override
-    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+            }
 
-        int w = MeasureSpec.getSize(widthMeasureSpec);
-        int h = MeasureSpec.getSize(heightMeasureSpec);
+            @Override
+            public void surfaceDestroyed(@NonNull SurfaceHolder surfaceHolder) {
+                boolean retry = true;
+                gameLoopThread.setRunning(false);
+                while (retry) {
+                    try {
+                        gameLoopThread.join();
+                        retry = false;
+                    } catch (InterruptedException e) {
+                        Log.e(TAG,"Error destroying Game",e);
+                    }
 
-        gameBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
-
-        gameCanvas.setBitmap(gameBitmap);
-
-        setMeasuredDimension(w, h);
+                }
+            }
+        });
+        blockList = new ArrayList<TetriminoBase>();
+        blockList.add(new TetriminoBase(getContext()));
+        currentBlock = blockList.get(blockList.size()-1);
     }
 
     @Override
     public void onDraw(Canvas canvas) {
-        canvas.drawBitmap(gameBitmap, 0, 0, new Paint());
-        invalidate();
-    }
-
-}
-
-class GameLoop extends Thread {
-
-    private float frameRate = 60;
-    private float frameTime = 1000 / frameRate;
-
-    private Game logicGame;
-    private Resources gameResources;
-    private Canvas gameCanvas;
-
-    public GameLoop(Resources res, Canvas canvas) {
-        logicGame = new Game(res, canvas);
-    }
-
-    @Override
-    public void run()
-    {
-        while (true) {
-            float startTime = System.currentTimeMillis();
-
-            logicGame.Update();
-            logicGame.Draw();
-
-            float endTime = System.currentTimeMillis();
-            long deltaTime = (long) (frameTime - (endTime - startTime));
-            try {
-                Thread.sleep(deltaTime);
-            } catch (InterruptedException e) {
+        Log.d(TAG,"drawing!");
+        canvas.drawColor(Color.BLUE);
+        if(collisionRect!=null){
+            Log.d(TAG,"collisionRect "+collisionRect.top);
+        }
+        Log.d(TAG," Y "+y);
+        if ((y < (getHeight() - currentBlock.getBmp().getHeight()))&&(collisionRect==null||y<collisionRect.top)) {
+            currentBlock.setY(y++);
+        }else{
+            //get a sense for the current static map state? Collision detection generation
+            Rect rect = new Rect(getWidth(),getHeight(),getWidth(),getHeight());
+            for(TetriminoBase block : blockList){
+                Log.d(TAG,"x "+block.getX()+" y "+block.getY());
+                if(rect.right>block.getX())
+                    rect.right=block.getX();
+                if(rect.bottom>block.getY())
+                    rect.bottom=block.getY();
+                rect.left=rect.right-block.getBmp().getWidth();
+                rect.top=rect.bottom-block.getBmp().getHeight();
+                Log.d(TAG,"rect left "+rect.left+" right "+rect.right+" top "+rect.top+" bot "+rect.bottom);
             }
+            collisionRect=rect;
+            //create new block
+            blockList.add(new TetriminoBase(getContext()));
+            currentBlock = blockList.get(blockList.size()-1);
+            y=currentBlock.getY();
+        }
+        for(TetriminoBase block : blockList) {
+            canvas.drawBitmap(block.getBmp(), 10, block.getY(), null);
         }
     }
 
-}
-
-class Game {
-    private Resources resources;
-    private Canvas canvas;
-
-    private int x = 0;
-    private int y = 0;
-    private Paint paint;
-    private int size = 50;
-    private long speed = 1000;
-    private long lastUpdate = 0;
-    ArrayList<Rect> blocks = new ArrayList<Rect>();
-    boolean placed = false;
-
-    public Game(Resources res, Canvas cas) {
-        resources = res;
-        canvas = cas;
-
-        paint = new Paint();
-        paint.setTextSize(size);
-    }
-
-    public void Draw() {
-        canvas.drawColor(Color.WHITE);
-        for(Rect r : blocks){
-            canvas.drawRect(r, paint);
-        }
-        Log.d("DEBUG","blocks size "+blocks.size());
-    }
-
-    public void Update() {
-        if(lastUpdate == 0 ) {
-            lastUpdate=System.currentTimeMillis();
-            if (blocks.isEmpty() | placed) {
-                blocks.add(createNewBlock());
-                placed = false;
-            }
-            Rect r = blocks.get(blocks.size() - 1);
-            r.set(r.left, r.top + size, r.right, r.bottom + size);
-            if ((r.bottom + (size * 2)) >= canvas.getHeight()) {
-                placed = true;
-            }
-            blocks.set(blocks.size() - 1, r);
-        }
-        if((System.currentTimeMillis()-lastUpdate)>speed)
-            lastUpdate=0;
-    }
-
-    public Rect createNewBlock(){
-        return new Rect(x,0,x+size,y+size);
-    }
 }

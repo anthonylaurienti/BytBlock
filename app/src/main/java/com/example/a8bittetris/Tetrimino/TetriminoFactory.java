@@ -1,6 +1,7 @@
 package com.example.a8bittetris.Tetrimino;
 
 public class TetriminoFactory {
+    public static int BASE = -1;
     public static int T = 0;
     public static int J = 1;
     public static int Z = 2;
