@@ -34,7 +34,7 @@ class GameView extends SurfaceView implements SurfaceHolder.Callback {
     private int y = 0;
     private int sizeX=0;
     private int sizeY=0;
-    private int speed=10000; //the higher, the slower.
+    private int speed=200; //the higher, the slower.
     private long lastMove;
     private boolean[][] mapState = new boolean[boardRows][boardCols];
 
@@ -105,25 +105,21 @@ class GameView extends SurfaceView implements SurfaceHolder.Callback {
             sizeX=currentBlock.getBmp().getWidth();
             sizeY=currentBlock.getBmp().getHeight();
         }
-        //Log.d(TAG,"drawing!");
         canvas.drawColor(Color.WHITE);
-        fallingCalc();
-        if(collisionRect!=null){
-            //Log.d(TAG,"collisionRect "+collisionRect.top);
-        }
-        //Log.d(TAG," Y "+y);
-        if ((y < (getHeight() - currentBlock.getBmp().getHeight()))&&!collisionCheck()) {
-            y=y+sizeY;
-            currentBlock.setY(y);
-        }else{
-            //get a sense for the current static map state? Collision detection generation
-            //create new block
-            updateMapstate(currentBlock);
-            blockList.add(new TetriminoBase(getContext(),blockSize));
-            currentBlock = blockList.get(blockList.size()-1);
-            sizeX=currentBlock.getBmp().getWidth();
-            sizeY=currentBlock.getBmp().getHeight();
-            y=currentBlock.getY();
+        if(fallingCalc()) {
+            if ((y < (getHeight() - currentBlock.getBmp().getHeight())) && !collisionCheck()) {
+                y = y + sizeY;
+                currentBlock.setY(y);
+            } else {
+                //get a sense for the current static map state? Collision detection generation
+                //create new block
+                updateMapstate(currentBlock);
+                blockList.add(new TetriminoBase(getContext(), blockSize));
+                currentBlock = blockList.get(blockList.size() - 1);
+                sizeX = currentBlock.getBmp().getWidth();
+                sizeY = currentBlock.getBmp().getHeight();
+                y = currentBlock.getY();
+            }
         }
         for(TetriminoBase block : blockList) {
             canvas.drawBitmap(block.getBmp(), block.getX(), block.getY(), null);
@@ -146,24 +142,10 @@ class GameView extends SurfaceView implements SurfaceHolder.Callback {
     public boolean fallingCalc(){
         long timestamp = System.currentTimeMillis();
         if(timestamp-lastMove>speed){
+            lastMove=timestamp;
             return true;
         }
         return false;
-    }
-
-    public Rect getCollisionY(){
-        Rect rect = new Rect(getWidth(),getHeight(),getWidth(),getHeight());
-        for(TetriminoBase block : blockList){
-            //Log.d(TAG,"x "+block.getX()+" y "+block.getY());
-            if(rect.right>block.getX())
-                rect.right=block.getX();
-            if(rect.bottom>block.getY())
-                rect.bottom=block.getY();
-            rect.left=rect.right-block.getBmp().getWidth();
-            rect.top=rect.bottom-block.getBmp().getHeight();
-            //Log.d(TAG,"rect left "+rect.left+" right "+rect.right+" top "+rect.top+" bot "+rect.bottom);
-        }
-        return rect;
     }
 
     public void idk(Canvas canvas){
