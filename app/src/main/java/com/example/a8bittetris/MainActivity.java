@@ -16,6 +16,6 @@ public class MainActivity extends AppCompatActivity {
         pixelGrid.setNumRows(6);
 
         //setContentView(pixelGrid);
-        setContentView(new GameView(this));
+        setContentView(R.layout.game_fragment);
     }
 }
